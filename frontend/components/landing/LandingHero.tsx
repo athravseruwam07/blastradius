@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { fadeUp, staggerContainer } from "@/lib/motion";
 
 export default function LandingHero() {
@@ -11,43 +11,32 @@ export default function LandingHero() {
       variants={staggerContainer}
       initial="hidden"
       animate="show"
-      className="mx-auto max-w-3xl text-center"
+      className="mx-auto max-w-2xl"
     >
-      <motion.div
+      <motion.p
         variants={fadeUp}
-        className="mx-auto mb-6 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs font-medium text-muted backdrop-blur-sm"
+        className="font-mono text-xs font-medium uppercase tracking-widest text-muted"
       >
-        <Sparkles className="size-3.5 text-primary" aria-hidden="true" />
-        Rule-based, fully explainable — no ML black box
-      </motion.div>
+        Deployment risk scoring
+      </motion.p>
 
       <motion.h1
         variants={fadeUp}
-        className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-6xl"
+        className="mt-4 text-balance text-4xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-5xl"
       >
-        Know which deploys will{" "}
-        <span className="bg-gradient-to-r from-primary via-violet-400 to-primary bg-clip-text text-transparent">
-          bite you
-        </span>{" "}
-        — before they ship
+        Know which deploys will bite you — before they ship
       </motion.h1>
 
-      <motion.p
-        variants={fadeUp}
-        className="mx-auto mt-6 max-w-xl text-balance text-lg text-muted"
-      >
-        Blastradius scores every deploy 0–100 against six deterministic risk
-        factors, gates the risky ones for human approval, and shows exactly
-        why — before a payment-service change ships on a Friday at 5pm.
+      <motion.p variants={fadeUp} className="mt-5 max-w-xl text-balance text-muted">
+        Six deterministic risk factors, one score, a full breakdown of why.
+        Wired into CI so a payment-service change on Friday at 5pm gets
+        stopped before it ships — not investigated after.
       </motion.p>
 
-      <motion.div
-        variants={fadeUp}
-        className="mt-10 flex flex-wrap items-center justify-center gap-3"
-      >
+      <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center gap-3">
         <Link
           href="/dashboard"
-          className="group inline-flex items-center gap-1.5 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary-hover hover:shadow-primary/40"
+          className="group inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
         >
           View live dashboard
           <ArrowRight
@@ -57,7 +46,7 @@ export default function LandingHero() {
         </Link>
         <Link
           href="/submit"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface/80 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur-sm transition-colors hover:bg-surface-hover"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover"
         >
           Score a deploy live
         </Link>
