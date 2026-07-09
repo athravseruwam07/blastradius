@@ -38,7 +38,16 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         // Reads are public; only enforce the key on state-changing requests. Without
         // this check the filter blocks everything unconditionally before
         // authorizeHttpRequests' GET-permitAll rule ever gets a chance to apply.
-        if ("GET".equalsIgnoreCase(request.getMethod()) || "HEAD".equalsIgnoreCase(request.getMethod())) {
+        //
+        // OPTIONS must always pass through too: any fetch() that sets a header
+        // (this app sends Content-Type: application/json even on GETs) makes the
+        // browser send a CORS preflight OPTIONS request first, which never carries
+        // the API key. Rejecting it here with a 401 produces a response with no
+        // Access-Control-Allow-Origin header, which the browser reports as a CORS
+        // failure — masking the real cause ("preflight got a 401") behind a generic
+        // "blocked by CORS policy" / "Failed to fetch" error.
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method) || "OPTIONS".equalsIgnoreCase(method)) {
             filterChain.doFilter(request, response);
             return;
         }
