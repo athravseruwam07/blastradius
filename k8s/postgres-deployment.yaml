@@ -27,6 +27,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: blastradius-db-config
+            - secretRef:
+                name: blastradius-db-secret
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data

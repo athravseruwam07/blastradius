@@ -32,6 +32,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class DeployScoringIntegrationTest {
 
+    // Matches the "dev-local-only-change-me" default in application.yml, inherited
+    // by the test profile since application-test.yml doesn't override blastradius.api-key.
+    private static final String API_KEY = "dev-local-only-change-me";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -67,6 +71,7 @@ class DeployScoringIntegrationTest {
                 """;
 
         mockMvc.perform(post("/api/deploys/score")
+                        .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
@@ -93,6 +98,7 @@ class DeployScoringIntegrationTest {
                 """;
 
         String body = mockMvc.perform(post("/api/deploys/score")
+                        .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
@@ -112,6 +118,24 @@ class DeployScoringIntegrationTest {
     }
 
     @Test
+    void scoringWithoutApiKeyReturns401() throws Exception {
+        String payload = """
+                {
+                  "serviceName": "payment-service",
+                  "diffLinesChanged": 100,
+                  "prodLinesChanged": 80,
+                  "testLinesChanged": 20,
+                  "changedPaths": []
+                }
+                """;
+
+        mockMvc.perform(post("/api/deploys/score")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void unknownServiceReturns404() throws Exception {
         String payload = """
                 {
@@ -124,6 +148,7 @@ class DeployScoringIntegrationTest {
                 """;
 
         mockMvc.perform(post("/api/deploys/score")
+                        .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isNotFound());
@@ -143,12 +168,14 @@ class DeployScoringIntegrationTest {
                 """;
 
         String body = mockMvc.perform(post("/api/deploys/score")
+                        .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andReturn().getResponse().getContentAsString();
         long id = com.jayway.jsonpath.JsonPath.parse(body).read("$.id", Long.class);
 
         mockMvc.perform(post("/api/deploys/" + id + "/outcome")
+                        .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

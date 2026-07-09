@@ -11,3 +11,8 @@ backend/target/
 
 # kind/kubeconfig artifacts (never commit real cluster credentials)
 kubeconfig*.yaml
+
+# secrets — see .env.example / k8s/*-secret.example.yaml for the real templates
+.env
+k8s/*-secret.yaml
+!k8s/*-secret.example.yaml

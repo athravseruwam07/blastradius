@@ -9,5 +9,4 @@ data:
   DB_PORT: "5432"
   DB_NAME: blastradius
   DB_USER: blastradius
-  # For a real production deployment move DB_PASSWORD into a Secret.
-  DB_PASSWORD: blastradius
+  CORS_ALLOWED_ORIGINS: "http://localhost:30300"

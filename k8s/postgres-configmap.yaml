@@ -5,7 +5,5 @@ metadata:
   labels:
     app: blastradius
 data:
-  # For a real production deployment move POSTGRES_PASSWORD into a Secret.
   POSTGRES_DB: blastradius
   POSTGRES_USER: blastradius
-  POSTGRES_PASSWORD: blastradius

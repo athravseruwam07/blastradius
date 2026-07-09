@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: blastradius
       POSTGRES_USER: blastradius
-      POSTGRES_PASSWORD: blastradius
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env — see .env.example}
     ports:
       # Host port 5433 to avoid clashing with a locally installed Postgres.
       - "5433:5432"
@@ -23,7 +23,9 @@ services:
       DB_PORT: "5432"
       DB_NAME: blastradius
       DB_USER: blastradius
-      DB_PASSWORD: blastradius
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env — see .env.example}
+      API_KEY: ${API_KEY:?set API_KEY in .env — see .env.example}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
     ports:
       - "8080:8080"
     depends_on:
@@ -39,6 +41,9 @@ services:
 
   frontend:
     build: ./frontend
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:8080
+      BLASTRADIUS_API_KEY: ${API_KEY:?set API_KEY in .env — see .env.example}
     ports:
       # Host port 3001 to avoid clashing with a locally running dev server.
       - "3001:3000"

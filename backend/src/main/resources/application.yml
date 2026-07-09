@@ -18,3 +18,10 @@ management:
     web:
       exposure:
         include: health
+
+blastradius:
+  # Required on every write (POST) endpoint via the X-Api-Key header; GETs
+  # stay open. Local-dev default below — production supplies a real value
+  # via the API_KEY env var, sourced from a K8s Secret (see k8s/*-secret.example.yaml).
+  api-key: ${API_KEY:dev-local-only-change-me}
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}

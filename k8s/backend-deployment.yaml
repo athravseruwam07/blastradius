@@ -27,6 +27,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: blastradius-backend-config
+            - secretRef:
+                name: blastradius-backend-secret
           readinessProbe:
             httpGet:
               path: /api/services

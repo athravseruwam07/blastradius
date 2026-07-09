@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blastradius-frontend-config
+  labels:
+    app: blastradius
+data:
+  # Server-side only (Next.js route handlers) — in-cluster service DNS.
+  BACKEND_INTERNAL_URL: http://blastradius-backend:8080

@@ -40,9 +40,18 @@ export function fetchIncidents(service: string): Promise<Incident[]> {
   );
 }
 
-export function scoreDeploy(body: ScoreRequest): Promise<Deploy> {
-  return request<Deploy>("/api/deploys/score", {
+// Goes through this app's own /api/score route, not straight to the backend —
+// that server route holds the real X-Api-Key server-side so it never ends up
+// in the browser bundle (unlike the read endpoints above, which are public).
+export async function scoreDeploy(body: ScoreRequest): Promise<Deploy> {
+  const res = await fetch("/api/score", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  return res.json() as Promise<Deploy>;
 }
