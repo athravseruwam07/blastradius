@@ -19,7 +19,7 @@ on:
 
 env:
   BLASTRADIUS_URL: http://localhost:8080
-  RISK_THRESHOLD: 60
+  RISK_THRESHOLD: 30  # TEMP: demo the approval gate, reverted next commit
   SERVICE_NAME: blastradius
   REGISTRY: localhost:5001
   # Default `java` on this runner is 1.8; Spring Boot 3.3.5 needs 17+.
