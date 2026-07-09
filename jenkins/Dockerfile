@@ -31,8 +31,11 @@ RUN ARCH=$(dpkg --print-architecture) && \
     curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" && \
     chmod +x /usr/local/bin/kubectl
 
+# Pinned to match the host kind CLI version — a mismatch here (kind load
+# docker-image talks to the node's containerd directly) produces
+# "failed to detect containerd snapshotter" against newer-CLI-created clusters.
 RUN ARCH=$(dpkg --print-architecture) && \
-    curl -Lo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-${ARCH}" && \
+    curl -Lo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-${ARCH}" && \
     chmod +x /usr/local/bin/kind
 
 COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
