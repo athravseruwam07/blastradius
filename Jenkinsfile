@@ -14,9 +14,7 @@ pipeline {
         // the same docker-compose network (see jenkins/README.md).
         BLASTRADIUS_URL = 'http://backend:8080'
         // Deploys scoring above this pause for human approval.
-        // TEMP: lowered from 60 to demonstrate the gate actually pausing and the
-        // REST API approval flow end to end. Reverted in the following commit.
-        RISK_THRESHOLD  = '30'
+        RISK_THRESHOLD  = '60'
         SERVICE_NAME    = 'blastradius'
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         // kind cluster name images get loaded into before kubectl references them.
