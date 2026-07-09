@@ -9,6 +9,13 @@
 pipeline {
     agent any
 
+    // Auto-build on new commits. A repo hosted on GitHub/GitLab would use a
+    // webhook instead (instant, no poll delay) — polling is the equivalent
+    // that works against a local file:// clone, which can't receive webhooks.
+    triggers {
+        pollSCM('H/2 * * * *')
+    }
+
     environment {
         // Compose service DNS name — reachable from a Jenkins agent joined to
         // the same docker-compose network (see jenkins/README.md).
@@ -78,10 +85,12 @@ pipeline {
                         changedPaths    : changedPaths,
                     ]
 
-                    def response = sh(
-                        script: "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/score " +
-                                "-H 'Content-Type: application/json' -d @score-request.json",
-                        returnStdout: true).trim()
+                    def response = withCredentials([string(credentialsId: 'blastradius-api-key', variable: 'API_KEY')]) {
+                        sh(
+                            script: "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/score " +
+                                    "-H 'Content-Type: application/json' -H \"X-Api-Key: \$API_KEY\" -d @score-request.json",
+                            returnStdout: true).trim()
+                    }
                     def result = readJSON text: response
 
                     env.RISK_SCORE = result.riskScore.toString()
@@ -115,11 +124,15 @@ pipeline {
                 // which needs no separate load step.)
                 sh "kind load docker-image blastradius-backend:${IMAGE_TAG} --name ${KIND_CLUSTER}"
                 sh "kind load docker-image blastradius-frontend:${IMAGE_TAG} --name ${KIND_CLUSTER}"
-                sh 'kubectl apply -f k8s/'
-                sh "kubectl set image deployment/blastradius-backend backend=blastradius-backend:${IMAGE_TAG}"
-                sh "kubectl set image deployment/blastradius-frontend frontend=blastradius-frontend:${IMAGE_TAG}"
-                sh 'kubectl rollout status deployment/blastradius-backend --timeout=180s'
-                sh 'kubectl rollout status deployment/blastradius-frontend --timeout=180s'
+                // kubeconfig comes from a Jenkins Credential (secret file), not a
+                // bind mount or global container env — scoped to just this stage.
+                withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh 'kubectl apply -f k8s/'
+                    sh "kubectl set image deployment/blastradius-backend backend=blastradius-backend:${IMAGE_TAG}"
+                    sh "kubectl set image deployment/blastradius-frontend frontend=blastradius-frontend:${IMAGE_TAG}"
+                    sh 'kubectl rollout status deployment/blastradius-backend --timeout=180s'
+                    sh 'kubectl rollout status deployment/blastradius-frontend --timeout=180s'
+                }
             }
         }
     }
@@ -131,16 +144,22 @@ pipeline {
             // created (DEPLOY_ID unset) — nothing to report an outcome against.
             script {
                 if (env.DEPLOY_ID) {
-                    sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
-                       "-H 'Content-Type: application/json' -d '{\"status\":\"SHIPPED\"}' || true"
+                    withCredentials([string(credentialsId: 'blastradius-api-key', variable: 'API_KEY')]) {
+                        sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
+                           "-H 'Content-Type: application/json' -H \"X-Api-Key: \$API_KEY\" " +
+                           "-d '{\"status\":\"SHIPPED\"}' || true"
+                    }
                 }
             }
         }
         failure {
             script {
                 if (env.DEPLOY_ID) {
-                    sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
-                       "-H 'Content-Type: application/json' -d '{\"status\":\"ROLLED_BACK\"}' || true"
+                    withCredentials([string(credentialsId: 'blastradius-api-key', variable: 'API_KEY')]) {
+                        sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
+                           "-H 'Content-Type: application/json' -H \"X-Api-Key: \$API_KEY\" " +
+                           "-d '{\"status\":\"ROLLED_BACK\"}' || true"
+                    }
                 }
             }
         }

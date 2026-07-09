@@ -2,6 +2,7 @@ git:latest
 workflow-aggregator:latest
 pipeline-utility-steps:latest
 credentials-binding:latest
+plain-credentials:latest
 junit:latest
 timestamper:latest
 ws-cleanup:latest

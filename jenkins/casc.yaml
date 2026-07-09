@@ -10,3 +10,22 @@ jenkins:
   authorizationStrategy:
     loggedInUsersCanDoAnything:
       allowAnonymousRead: false
+
+# Secrets the pipeline needs (API key, kind kubeconfig) live here — pulled in
+# via withCredentials in the Jenkinsfile — rather than as plaintext bind
+# mounts or global container env vars.
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "blastradius-api-key"
+              secret: "${BLASTRADIUS_API_KEY}"
+              description: "X-Api-Key for the Blastradius backend"
+          - file:
+              scope: GLOBAL
+              id: "kind-kubeconfig"
+              description: "kind cluster kubeconfig (internal docker-network address)"
+              fileName: "kubeconfig"
+              secretBytes: "${KIND_KUBECONFIG_BASE64}"

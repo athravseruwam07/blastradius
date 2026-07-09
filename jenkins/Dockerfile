@@ -3,9 +3,9 @@
 # the local kind cluster). Mounts the host's docker.sock rather than running
 # Docker-in-Docker, so images built here land directly in the host daemon.
 #
-# Runs as root (not the default `jenkins` user) purely to avoid GID-matching
-# the mounted docker.sock across hosts — fine for this local CI proof, not
-# something you'd do for a production Jenkins controller.
+# Runs as the unprivileged `jenkins` user at runtime (see entrypoint.sh) —
+# the image builds as root only to install packages and align the docker
+# group GID with the mounted socket, which varies by host.
 FROM jenkins/jenkins:lts-jdk17
 
 USER root
@@ -42,6 +42,10 @@ COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
 RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
 
 COPY casc.yaml /var/jenkins_home/casc.yaml
+COPY entrypoint.sh /usr/local/bin/blastradius-entrypoint.sh
+RUN chmod +x /usr/local/bin/blastradius-entrypoint.sh
 
 ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
 ENV CASC_JENKINS_CONFIG="/var/jenkins_home/casc.yaml"
+
+ENTRYPOINT ["/usr/local/bin/blastradius-entrypoint.sh"]
