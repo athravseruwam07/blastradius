@@ -29,6 +29,19 @@ pipeline {
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                // Jenkins' default git checkout doesn't remove files that were
+                // tracked in a previous build but have since been deleted or
+                // moved — found the hard way when a stale copy of
+                // backend-secret.example.yaml lingered directly in k8s/ (its
+                // old path, pre-move) and silently clobbered the real secret
+                // on every `kubectl apply -f k8s/`. Clean, then re-checkout.
+                cleanWs()
+                checkout scm
+            }
+        }
+
         stage('Build') {
             steps {
                 dir('backend') {
