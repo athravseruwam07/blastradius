@@ -1,0 +1,148 @@
+# Real GitHub Actions equivalent of the Jenkinsfile in the repo root — same
+# idea (build, test, self-score, gate on risk, deploy), running on GitHub's
+# event model instead of Jenkins'.
+#
+# Runs on a self-hosted runner, not GitHub-hosted ones: this workflow needs
+# to reach the Blastradius backend and the kind cluster, both local to this
+# machine. A GitHub-hosted runner has no network path to localhost:8080 or a
+# local kind cluster — that's a hard constraint, not a config choice.
+#
+# Deliberately triggers on `push` only, never `pull_request`. Self-hosted
+# runners on a public repo are a known RCE vector if a workflow can be
+# triggered by an untrusted fork's pull request — `push` requires write
+# access to this repo, which only trusted collaborators have.
+name: Deploy risk gate
+
+on:
+  push:
+    branches: [main]
+
+env:
+  BLASTRADIUS_URL: http://localhost:8080
+  RISK_THRESHOLD: 60
+  SERVICE_NAME: blastradius
+  REGISTRY: localhost:5001
+  # Default `java` on this runner is 1.8; Spring Boot 3.3.5 needs 17+.
+  JAVA_HOME: /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+
+jobs:
+  score:
+    runs-on: [self-hosted, blastradius-local]
+    outputs:
+      risk_score: ${{ steps.score.outputs.risk_score }}
+      risk_level: ${{ steps.score.outputs.risk_level }}
+      deploy_id: ${{ steps.score.outputs.deploy_id }}
+      target_environment: ${{ steps.score.outputs.target_environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build
+        run: |
+          (cd backend && mvn -B -q package -DskipTests)
+          (cd frontend && npm ci && npm run build)
+
+      - name: Unit test
+        run: |
+          (cd backend && mvn -B test)
+          (cd frontend && npm test)
+
+      - name: Score this deploy
+        id: score
+        env:
+          API_KEY: ${{ secrets.BLASTRADIUS_API_KEY }}
+        run: |
+          set -euo pipefail
+          # github.event.before is all-zeros on a repo's very first push —
+          # fall back to scoring against an empty tree in that case.
+          BEFORE="${{ github.event.before }}"
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            RANGE="$(git hash-object -t tree /dev/null)..${{ github.sha }}"
+          else
+            RANGE="${BEFORE}..${{ github.sha }}"
+          fi
+
+          DIFF_LINES=$(git diff --shortstat $RANGE | awk '{print $4+$6}')
+          DIFF_LINES=${DIFF_LINES:-0}
+          TEST_LINES=$(git diff --numstat $RANGE -- '*test*' '*__tests__*' | awk '{s+=$1+$2} END {print s+0}')
+          PROD_LINES=$((DIFF_LINES - TEST_LINES))
+          if [ "$PROD_LINES" -lt 0 ]; then PROD_LINES=0; fi
+          CHANGED_PATHS=$(git diff --name-only $RANGE | head -50 | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
+
+          python3 -c "
+          import json
+          print(json.dumps({
+            'serviceName': '${SERVICE_NAME}',
+            'diffLinesChanged': ${DIFF_LINES},
+            'prodLinesChanged': ${PROD_LINES},
+            'testLinesChanged': ${TEST_LINES},
+            'changedPaths': ${CHANGED_PATHS},
+          }))
+          " > score-request.json
+
+          RESPONSE=$(curl -sf -X POST "${BLASTRADIUS_URL}/api/deploys/score" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Key: ${API_KEY}" \
+            -d @score-request.json)
+
+          SCORE=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['riskScore'])")
+          LEVEL=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['riskLevel'])")
+          ID=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+          echo "Blastradius scored this deploy ${SCORE}/100 (${LEVEL})"
+          echo "$RESPONSE" | python3 -c "
+          import json, sys
+          for f in json.load(sys.stdin)['breakdown']:
+              pts = f'+{f[\"points\"]}' if f['triggered'] else ' 0'
+              print(f'  {pts} pts — {f[\"detail\"]}')
+          "
+
+          echo "risk_score=${SCORE}" >> "$GITHUB_OUTPUT"
+          echo "risk_level=${LEVEL}" >> "$GITHUB_OUTPUT"
+          echo "deploy_id=${ID}" >> "$GITHUB_OUTPUT"
+          if [ "$SCORE" -gt "$RISK_THRESHOLD" ]; then
+            echo "target_environment=production-gated" >> "$GITHUB_OUTPUT"
+          else
+            echo "target_environment=production-auto" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: score
+    runs-on: [self-hosted, blastradius-local]
+    # Picking the environment dynamically is what makes the gate conditional:
+    # production-gated has a required-reviewer protection rule (see repo
+    # Settings > Environments), so this job pauses for manual approval only
+    # when the score actually exceeded the threshold. production-auto has no
+    # protection rule, so a low-risk deploy proceeds immediately — this is
+    # the GitHub Actions equivalent of Jenkins' conditional `input` step.
+    environment: ${{ needs.score.outputs.target_environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push images
+        run: |
+          docker build -t ${REGISTRY}/blastradius-backend:${{ github.run_number }} backend/
+          docker build -t ${REGISTRY}/blastradius-frontend:${{ github.run_number }} frontend/
+          docker push ${REGISTRY}/blastradius-backend:${{ github.run_number }}
+          docker push ${REGISTRY}/blastradius-frontend:${{ github.run_number }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/
+          kubectl set image deployment/blastradius-backend backend=${REGISTRY}/blastradius-backend:${{ github.run_number }}
+          kubectl set image deployment/blastradius-frontend frontend=${REGISTRY}/blastradius-frontend:${{ github.run_number }}
+          kubectl rollout status deployment/blastradius-backend --timeout=180s
+          kubectl rollout status deployment/blastradius-frontend --timeout=180s
+
+      - name: Report outcome
+        if: always()
+        env:
+          API_KEY: ${{ secrets.BLASTRADIUS_API_KEY }}
+        run: |
+          STATUS="ROLLED_BACK"
+          if [ "${{ job.status }}" = "success" ]; then STATUS="SHIPPED"; fi
+          curl -sf -X POST "${BLASTRADIUS_URL}/api/deploys/${{ needs.score.outputs.deploy_id }}/outcome" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Key: ${API_KEY}" \
+            -d "{\"status\":\"${STATUS}\"}" || true
