@@ -58,6 +58,11 @@ public class DataSeeder implements CommandLineRunner {
                 "order-service", 7, List.of("/checkout/")));
         serviceRepository.save(new MonitoredService(
                 "marketing-site", 2, List.of()));
+        // Blastradius scores its own deploys (see Jenkinsfile) — it needs to exist
+        // as a service like any other. "scoring/" is sensitive because a bad change
+        // there silently changes every other service's risk score.
+        serviceRepository.save(new MonitoredService(
+                "blastradius", 8, List.of("scoring/")));
 
         LocalDateTime now = LocalDateTime.now();
 

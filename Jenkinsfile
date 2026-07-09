@@ -10,12 +10,15 @@ pipeline {
     agent any
 
     environment {
-        // Where a running Blastradius backend is reachable from the Jenkins agent.
-        BLASTRADIUS_URL = 'http://blastradius-backend:8080'
+        // Compose service DNS name — reachable from a Jenkins agent joined to
+        // the same docker-compose network (see jenkins/README.md).
+        BLASTRADIUS_URL = 'http://backend:8080'
         // Deploys scoring above this pause for human approval.
         RISK_THRESHOLD  = '60'
         SERVICE_NAME    = 'blastradius'
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
+        // kind cluster name images get loaded into before kubectl references them.
+        KIND_CLUSTER    = 'blastradius'
     }
 
     stages {
@@ -65,14 +68,15 @@ pipeline {
                         script: "git diff --name-only ${range} | head -50",
                         returnStdout: true).trim().split('\n').findAll { it }
 
-                    def payload = groovy.json.JsonOutput.toJson([
+                    // writeJSON (Pipeline Utility Steps) instead of groovy.json.JsonOutput —
+                    // the latter is a raw static call the pipeline sandbox rejects by default.
+                    writeJSON file: 'score-request.json', json: [
                         serviceName     : env.SERVICE_NAME,
                         diffLinesChanged: diffLines as int,
                         prodLinesChanged: Math.max(prodLines as int, 0),
                         testLinesChanged: testLines as int,
                         changedPaths    : changedPaths,
-                    ])
-                    writeFile file: 'score-request.json', text: payload
+                    ]
 
                     def response = sh(
                         script: "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/score " +
@@ -105,7 +109,12 @@ pipeline {
             steps {
                 sh "docker build -t blastradius-backend:${IMAGE_TAG} backend/"
                 sh "docker build -t blastradius-frontend:${IMAGE_TAG} frontend/"
-                // Assumes the agent's kubeconfig targets the desired cluster (minikube/kind).
+                // Images are local-only (no registry) — kind's node containerd can't
+                // pull them, so they must be loaded into the cluster explicitly.
+                // (minikube's equivalent is `eval $(minikube docker-env)` before build,
+                // which needs no separate load step.)
+                sh "kind load docker-image blastradius-backend:${IMAGE_TAG} --name ${KIND_CLUSTER}"
+                sh "kind load docker-image blastradius-frontend:${IMAGE_TAG} --name ${KIND_CLUSTER}"
                 sh 'kubectl apply -f k8s/'
                 sh "kubectl set image deployment/blastradius-backend backend=blastradius-backend:${IMAGE_TAG}"
                 sh "kubectl set image deployment/blastradius-frontend frontend=blastradius-frontend:${IMAGE_TAG}"
@@ -117,13 +126,23 @@ pipeline {
 
     post {
         success {
-            // Close the feedback loop: mark the scored deploy as shipped.
-            sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
-               "-H 'Content-Type: application/json' -d '{\"status\":\"SHIPPED\"}' || true"
+            // Close the feedback loop: mark the scored deploy as shipped. Guarded
+            // because a failure before the Score stage means no deploy was ever
+            // created (DEPLOY_ID unset) — nothing to report an outcome against.
+            script {
+                if (env.DEPLOY_ID) {
+                    sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
+                       "-H 'Content-Type: application/json' -d '{\"status\":\"SHIPPED\"}' || true"
+                }
+            }
         }
         failure {
-            sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
-               "-H 'Content-Type: application/json' -d '{\"status\":\"ROLLED_BACK\"}' || true"
+            script {
+                if (env.DEPLOY_ID) {
+                    sh "curl -sf -X POST ${env.BLASTRADIUS_URL}/api/deploys/${env.DEPLOY_ID}/outcome " +
+                       "-H 'Content-Type: application/json' -d '{\"status\":\"ROLLED_BACK\"}' || true"
+                }
+            }
         }
     }
 }
