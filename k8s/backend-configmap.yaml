@@ -9,4 +9,6 @@ data:
   DB_PORT: "5432"
   DB_NAME: blastradius
   DB_USER: blastradius
-  CORS_ALLOWED_ORIGINS: "http://localhost:30300"
+  # localhost and 127.0.0.1 are distinct CORS origins even though they're the
+  # same machine; both listed since NodePort access varies by how it's reached.
+  CORS_ALLOWED_ORIGINS: "http://localhost:30300,http://127.0.0.1:30300"
