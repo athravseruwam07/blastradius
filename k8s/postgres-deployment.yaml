@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blastradius-postgres
+  labels:
+    app: blastradius
+    component: postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single writer on a RWO volume; never run two postgres pods at once
+  selector:
+    matchLabels:
+      app: blastradius
+      component: postgres
+  template:
+    metadata:
+      labels:
+        app: blastradius
+        component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: blastradius-db-config
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "blastradius", "-d", "blastradius"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: blastradius-postgres-pvc

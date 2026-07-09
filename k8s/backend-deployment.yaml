@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blastradius-backend
+  labels:
+    app: blastradius
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blastradius
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: blastradius
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          # Built locally (eval $(minikube docker-env) && docker build) or pushed by Jenkins.
+          image: blastradius-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: blastradius-backend-config
+          readinessProbe:
+            httpGet:
+              path: /api/services
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi

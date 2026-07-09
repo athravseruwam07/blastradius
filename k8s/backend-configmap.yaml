@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blastradius-backend-config
+  labels:
+    app: blastradius
+data:
+  DB_HOST: blastradius-postgres
+  DB_PORT: "5432"
+  DB_NAME: blastradius
+  DB_USER: blastradius
+  # For a real production deployment move DB_PASSWORD into a Secret.
+  DB_PASSWORD: blastradius

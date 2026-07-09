@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/*
+ * Dark-first design tokens. Everything below is either inside @theme (which
+ * Tailwind places in its own cascade layer) or is a bare custom-property
+ * declaration on :root — never a plain `body { background: ... }` rule.
+ * Tailwind v4 puts utility classes in @layer utilities, and unlayered CSS
+ * always wins over layered CSS regardless of specificity. A leftover
+ * unlayered `body{}` rule here previously overrode every background and
+ * text-color utility on <body>, which is what produced the black-page,
+ * invisible-text bug.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+:root {
+  --background: #020617;
+  --surface: #0f172a;
+  --surface-hover: #17213a;
+  --border: #1e293b;
+  --foreground: #f1f5f9;
+  --muted-foreground: #94a3b8;
+  --primary: #6366f1;
+  --primary-hover: #818cf8;
+  --primary-foreground: #ffffff;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #f8fafc;
+    --surface: #ffffff;
+    --surface-hover: #f1f5f9;
+    --border: #e2e8f0;
+    --foreground: #0f172a;
+    --muted-foreground: #64748b;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --primary-foreground: #ffffff;
+    color-scheme: light;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+}
