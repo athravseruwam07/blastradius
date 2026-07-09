@@ -6,7 +6,7 @@ import { LayoutDashboard, PlusCircle, Server } from "lucide-react";
 import Logo from "./Logo";
 
 const LINKS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/submit", label: "Score a deploy", icon: PlusCircle },
   { href: "/services", label: "Services", icon: Server },
 ];
@@ -25,7 +25,7 @@ export default function NavBar() {
         </Link>
         <div className="flex items-center gap-1">
           {LINKS.map(({ href, label, icon: Icon }) => {
-            const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+            const active = pathname.startsWith(href);
             return (
               <Link
                 key={href}

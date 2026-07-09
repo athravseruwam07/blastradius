@@ -1,9 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Sparkles } from "lucide-react";
 import ScoreBreakdown from "@/components/ScoreBreakdown";
 import { fetchServices, scoreDeploy } from "@/lib/api";
+import { fadeUp, scaleIn, staggerContainer } from "@/lib/motion";
 import type { Deploy, Service } from "@/lib/types";
 
 const inputClass =
@@ -54,17 +56,22 @@ export default function SubmitDeployPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeUp}>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Score a test deploy
         </h1>
         <p className="mt-1 text-sm text-muted">
           Submit deploy metadata and see it scored live by the real engine.
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <motion.div variants={fadeUp} className="grid gap-6 md:grid-cols-2">
         <form
           onSubmit={onSubmit}
           className="space-y-4 rounded-xl border border-border bg-surface p-6"
@@ -135,10 +142,11 @@ export default function SubmitDeployPage() {
             </span>
           </label>
 
-          <button
+          <motion.button
             type="submit"
             disabled={submitting || !serviceName}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+            whileTap={{ scale: 0.97 }}
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? (
               <>
@@ -151,7 +159,7 @@ export default function SubmitDeployPage() {
                 Score deploy
               </>
             )}
-          </button>
+          </motion.button>
 
           {error && (
             <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
@@ -161,20 +169,33 @@ export default function SubmitDeployPage() {
         </form>
 
         <div>
-          {result ? (
-            <div className="rounded-xl border border-border bg-surface p-6">
-              <ScoreBreakdown deploy={result} />
-            </div>
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-8 text-center">
-              <Sparkles className="size-5 text-muted" aria-hidden="true" />
-              <p className="text-sm text-muted">
-                Submit the form to see a live score.
-              </p>
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {result ? (
+              <motion.div
+                key={result.id}
+                variants={scaleIn}
+                initial="hidden"
+                animate="show"
+                className="rounded-xl border border-border bg-surface p-6"
+              >
+                <ScoreBreakdown deploy={result} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-8 text-center"
+              >
+                <Sparkles className="size-5 text-muted" aria-hidden="true" />
+                <p className="text-sm text-muted">
+                  Submit the form to see a live score.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
