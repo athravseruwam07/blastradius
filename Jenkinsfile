@@ -24,8 +24,12 @@ pipeline {
         RISK_THRESHOLD  = '60'
         SERVICE_NAME    = 'blastradius'
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
-        // kind cluster name images get loaded into before kubectl references them.
-        KIND_CLUSTER    = 'blastradius'
+        // Local registry wired into the kind cluster's containerd (see
+        // k8s/kind-config.yaml) — "localhost:5001" by convention even though
+        // the actual container is named kind-registry; that's what the
+        // containerd mirror config redirects, and what the k8s manifests'
+        // image fields reference.
+        REGISTRY        = 'localhost:5001'
     }
 
     stages {
@@ -129,20 +133,21 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh "docker build -t blastradius-backend:${IMAGE_TAG} backend/"
-                sh "docker build -t blastradius-frontend:${IMAGE_TAG} frontend/"
-                // Images are local-only (no registry) — kind's node containerd can't
-                // pull them, so they must be loaded into the cluster explicitly.
-                // (minikube's equivalent is `eval $(minikube docker-env)` before build,
-                // which needs no separate load step.)
-                sh "kind load docker-image blastradius-backend:${IMAGE_TAG} --name ${KIND_CLUSTER}"
-                sh "kind load docker-image blastradius-frontend:${IMAGE_TAG} --name ${KIND_CLUSTER}"
+                sh "docker build -t ${REGISTRY}/blastradius-backend:${IMAGE_TAG} backend/"
+                sh "docker build -t ${REGISTRY}/blastradius-frontend:${IMAGE_TAG} frontend/"
+                // Pushed to a real (local) registry rather than `kind load
+                // docker-image`-ed in one tag at a time — the node's containerd
+                // pulls it back through the mirror config in k8s/kind-config.yaml.
+                // Same shape a real registry (ECR/GHCR) would take against a real
+                // cluster; kind load was a kind-only local workaround.
+                sh "docker push ${REGISTRY}/blastradius-backend:${IMAGE_TAG}"
+                sh "docker push ${REGISTRY}/blastradius-frontend:${IMAGE_TAG}"
                 // kubeconfig comes from a Jenkins Credential (secret file), not a
                 // bind mount or global container env — scoped to just this stage.
                 withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
                     sh 'kubectl apply -f k8s/'
-                    sh "kubectl set image deployment/blastradius-backend backend=blastradius-backend:${IMAGE_TAG}"
-                    sh "kubectl set image deployment/blastradius-frontend frontend=blastradius-frontend:${IMAGE_TAG}"
+                    sh "kubectl set image deployment/blastradius-backend backend=${REGISTRY}/blastradius-backend:${IMAGE_TAG}"
+                    sh "kubectl set image deployment/blastradius-frontend frontend=${REGISTRY}/blastradius-frontend:${IMAGE_TAG}"
                     sh 'kubectl rollout status deployment/blastradius-backend --timeout=180s'
                     sh 'kubectl rollout status deployment/blastradius-frontend --timeout=180s'
                 }

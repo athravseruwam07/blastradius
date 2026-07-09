@@ -1,0 +1,14 @@
+# kind cluster config wiring a local image registry — the standard pattern
+# from kind's own docs (kind.sigs.k8s.io/docs/user/local-registry). Without
+# this, kubectl-referenced images have to be `kind load`-ed into the node
+# one at a time by tag, which is a local-only workaround; with it, the
+# pipeline does a normal `docker push` / kubectl pulls normally, closer to
+# how a real registry (ECR/GHCR) would work against a real cluster.
+#
+# Host port 5001, not 5000 — 5000 is taken by macOS's AirPlay Receiver.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
+      endpoint = ["http://kind-registry:5000"]

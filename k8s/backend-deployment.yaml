@@ -19,8 +19,11 @@ spec:
     spec:
       containers:
         - name: backend
-          # Built locally (eval $(minikube docker-env) && docker build) or pushed by Jenkins.
-          image: blastradius-backend:latest
+          # For minikube: eval $(minikube docker-env) && docker build, then
+          # imagePullPolicy IfNotPresent. For kind: a local registry (see
+          # ../kind-config.yaml, jenkins/README.md) — Jenkins pushes here,
+          # containerd on the node pulls it back through the mirror config.
+          image: localhost:5001/blastradius-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

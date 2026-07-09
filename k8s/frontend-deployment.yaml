@@ -19,9 +19,10 @@ spec:
     spec:
       containers:
         - name: frontend
-          # Build with NEXT_PUBLIC_API_BASE pointing at the backend NodePort
-          # (e.g. http://$(minikube ip):30080) since the browser calls the API directly.
-          image: blastradius-frontend:latest
+          # For minikube: eval $(minikube docker-env) && docker build, then
+          # imagePullPolicy IfNotPresent. For kind: pulled through the local
+          # registry (see ../kind-config.yaml, jenkins/README.md).
+          image: localhost:5001/blastradius-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

@@ -113,21 +113,30 @@ cd frontend && npm test
 The manifests in `k8s/` define Deployments, Services, ConfigMaps, and a PVC for
 Postgres.
 
+The manifests' image fields point at `localhost:5001/...` (a local registry
+wired into kind — see below); for minikube, build directly under that same
+tag into minikube's own Docker daemon and `IfNotPresent` picks it up without
+ever needing a real registry listening there.
+
 ```bash
 # minikube — build images inside the cluster's Docker daemon
 minikube start
 eval $(minikube docker-env)
-docker build -t blastradius-backend:latest backend/
-docker build -t blastradius-frontend:latest frontend/
+docker build -t localhost:5001/blastradius-backend:latest backend/
+docker build -t localhost:5001/blastradius-frontend:latest frontend/
 kubectl apply -f k8s/
 kubectl get pods            # wait for Running
 minikube service blastradius-frontend   # opens the dashboard
 
-# kind — load locally built images into the cluster
-kind create cluster --name blastradius
-docker build -t blastradius-backend:latest backend/
-docker build -t blastradius-frontend:latest frontend/
-kind load docker-image blastradius-backend:latest blastradius-frontend:latest --name blastradius
+# kind — with a local registry wired into the cluster's containerd, so
+# `docker push` + a normal kubelet pull works instead of `kind load`
+docker run -d --restart=always -p 5001:5000 --name kind-registry registry:2
+kind create cluster --name blastradius --config kind-config.yaml
+docker network connect kind kind-registry
+docker build -t localhost:5001/blastradius-backend:latest backend/
+docker build -t localhost:5001/blastradius-frontend:latest frontend/
+docker push localhost:5001/blastradius-backend:latest
+docker push localhost:5001/blastradius-frontend:latest
 kubectl apply -f k8s/
 kubectl get pods
 ```

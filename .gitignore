@@ -12,7 +12,11 @@ backend/target/
 # kind/kubeconfig artifacts (never commit real cluster credentials)
 kubeconfig*.yaml
 
-# secrets — see .env.example / k8s/*-secret.example.yaml for the real templates
+# secrets — see .env.example / k8s/examples/*.yaml for the real templates.
+# Real secret manifests live directly in k8s/ (so `kubectl apply -f k8s/`
+# picks them up); templates live in k8s/examples/ specifically so that same
+# command does NOT also apply them — they used to share a filename pattern
+# and a resource name, and whichever applied last silently clobbered the
+# real secret with placeholder values.
 .env
 k8s/*-secret.yaml
-!k8s/*-secret.example.yaml
